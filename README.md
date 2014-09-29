@@ -15,10 +15,10 @@ The passwdqc toolset can be found at: http://www.openwall.com/passwdqc
 
 #### BUILD
 
-You'll need the devel-packages of the slapi header files and passwdqc.
+You'll need the devel-packages of the 389 directory server and passwdqc.
 In fedora these are 389-ds-base-devel and passwdqc-devel respectively.
 
-For example, the following should work on a standard Centos 6 installation:
+The following commands should build the plugin in a standard Centos 6 installation:
 
 ```
 $ ./configure --prefix=/usr --libdir=/usr/lib64 \
@@ -30,11 +30,11 @@ $ make install
 
 #### INSTALL
 
-1. Copy the libpasswdqc-plugin.so file to <ds-base>/lib/dirserv/plugins/
-2. Copy the plugin configuration schema schema/50passwdqc-plugin.ldif to
-   the server schemas directory (usually /etc/dirsrv/<slapd-dir>/schema).
-3. Configure the plugin, by adding the provided passwdqc-conf.ldif
-   into the server dse.ldif.
+1. Copy the libpasswdqc-plugin.so file to `<ds-base>/lib/dirserv/plugins/`
+2. Copy the plugin configuration schema `schema/50passwdqc-plugin.ldif` to
+   the server schemas directory (usually `/etc/dirsrv/<slapd-dir>/schema`).
+3. Configure the plugin, by adding the provided `passwdqc-conf.ldif`
+   into the server `dse.ldif`.
 3. The passwdqcParam attribute is used for passwdqc configuration, one
    attribute for each parameter. For example,
 ```
