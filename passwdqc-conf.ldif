@@ -1,0 +1,18 @@
+dn: cn=Passwdqc,cn=plugins,cn=config
+objectclass: top
+objectclass: nsSlapdPlugin
+objectclass: extensibleObject
+cn: Passwdqc
+nsslapd-pluginpath: libpasswdqc-plugin
+nsslapd-plugininitfunc: passwdqc_extop_init
+nsslapd-plugintype: extendedop
+nsslapd-pluginenabled: off
+nsslapd-pluginid: Passwdqc plugin
+nsslapd-pluginversion: 0.1
+nsslapd-pluginvendor: URI, Facultad de Ingeniería, Universidad de la República
+nsslapd-plugindescription: Plugin for password strength verification using Passwdqc
+nsslapd-pluginPrecedence: 1
+passwdqcParam: min=disabled,24,11,8,7
+passwdqcParam: max=40
+passwdqcParam: passphrase=3
+

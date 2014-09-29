@@ -1,0 +1,18 @@
+This passwdqc plugin was written by Juan Diego Campo for Unidad de
+Recursos Informáticos, Facultad de Ingeniería, Universidad de la
+República, Uruguay.
+
+It uses some code snippets from the 389 directory server distribution:
+
+* the memberOf plugin, written by Pete Rowley and Nathan Kinder for
+  Red Hat, Inc.
+
+* the passwd_extop.c file, written by Red Hat, Inc.
+
+* the testextendedop.c test plugin written by Sun Microsystems, Inc.
+  and Red Hat, Inc.
+
+Autotools scripts and parts of the documentation are based on the ones
+in the Posix Winsync Plugin for 389-ds, written by Carsten Grzemba for
+contac Datentechnik GmbH.
+
