@@ -18,7 +18,7 @@ The passwdqc toolset can be found at: http://www.openwall.com/passwdqc
 You'll need the devel-packages of the slapi header files and passwdqc.
 In fedora these are 389-ds-base-devel and passwdqc-devel respectively.
 
-The following should work on a standard linux installation:
+For example, the following should work on a standard Centos 6 installation:
 
 ```
 $ ./configure --prefix=/usr --libdir=/usr/lib64 \
