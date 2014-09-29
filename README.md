@@ -13,7 +13,7 @@ The 389 directory server can be found at: http://www.port389.org
 The passwdqc toolset can be found at: http://www.openwall.com/passwdqc
 
 
-# BUILD
+#### BUILD
 
 You'll need the devel-packages of the slapi header files and passwdqc.
 In fedora these are 389-ds-base-devel and passwdqc-devel respectively.
@@ -28,7 +28,7 @@ $ make
 $ make install
 ```
 
-# INSTALL
+#### INSTALL
 
 1. Copy the libpasswdqc-plugin.so file to <ds-base>/lib/dirserv/plugins/
 2. Copy the plugin configuration schema schema/50passwdqc-plugin.ldif to
