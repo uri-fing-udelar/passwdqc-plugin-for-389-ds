@@ -198,7 +198,7 @@ passwdqc_config (Slapi_Entry *config_e, Slapi_PBlock *pb)
 
   /* Set up callbacks for the config entry */
   const char *config_dn = slapi_sdn_get_dn (passwdqc_get_plugin_area());
-  slapi_config_register_callback (SLAPI_OPERATION_MODIFY, DSE_FLAG_POSTOP,
+  slapi_config_register_callback (SLAPI_OPERATION_MODIFY, DSE_FLAG_PREOP,
 				  config_dn, LDAP_SCOPE_BASE, PASSWDQC_CONFIG_FILTER,
 				  passwdqc_apply_config,NULL);
   slapi_config_register_callback (SLAPI_OPERATION_MODRDN, DSE_FLAG_PREOP,
