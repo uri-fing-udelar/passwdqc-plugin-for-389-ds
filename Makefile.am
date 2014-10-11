@@ -31,3 +31,6 @@ pkgdata_DATA = $(srcdir)/$(CONFFILE)
 distclean: clean
 	rm -f config.* *~ Makefile Makefile.in autoscan.log
 	rm -rf autom4te.cache
+
+check-syntax:
+	gcc -Wall -fsyntax-only -Wno-variadic-macros -std=c99 $(INCLUDES) $(DS_INCLUDES) $(NSPR_INCLUDES) $(PASSWDQC_INCLUDES) $(CHK_SOURCES)
