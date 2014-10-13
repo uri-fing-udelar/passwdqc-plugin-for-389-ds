@@ -594,7 +594,8 @@ passwdqc_modify_entry (Slapi_PBlock *pb)
         }
       }
 
-    struct berval val = { strlen(new_password), new_password };
+    
+    struct berval val = { new_password ? strlen(new_password) : 0, new_password };
     
     if (!new_password && !new_unhashed_password)
       {
