@@ -4,8 +4,8 @@ objectclass: nsSlapdPlugin
 objectclass: extensibleObject
 cn: Passwdqc
 nsslapd-pluginpath: libpasswdqc-plugin
-nsslapd-plugininitfunc: passwdqc_extop_init
-nsslapd-plugintype: extendedop
+nsslapd-plugininitfunc: passwdqc_init
+nsslapd-plugintype: preoperation
 nsslapd-pluginenabled: off
 nsslapd-pluginid: Passwdqc plugin
 nsslapd-pluginversion: 0.1

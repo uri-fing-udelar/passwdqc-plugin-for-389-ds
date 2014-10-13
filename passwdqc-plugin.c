@@ -223,14 +223,14 @@ passwdqc_config (Slapi_Entry *config_e, Slapi_PBlock *pb)
 
 
 /*
- * passwdqc_extop_start ()
+ * passwdqc_start ()
  *
  * Function called on server startup. Loads configuration from plugin
  * entry.
  *
  */
 int
-passwdqc_extop_start (Slapi_PBlock *pb)
+passwdqc_start (Slapi_PBlock *pb)
 {
   Slapi_Entry *config_e = NULL; /* entry containing plugin config */
   int rc = 0;
@@ -252,7 +252,7 @@ passwdqc_extop_start (Slapi_PBlock *pb)
     }
 
   slapi_log_error( SLAPI_LOG_PLUGIN, "passwdqc",
-		   "<-- passwdqc_extop_start\n" );
+		   "<-- passwdqc_start\n" );
 
   return rc;
 }
@@ -525,9 +525,159 @@ passwdqc_change_pass (Slapi_PBlock *pb)
 }
 
 
-/* Initialization function */
+
+/*
+ * passwdqc_modify_entry ()
+ *
+ * Check if changed attribute is userPassword. If it is plain text,
+ * check policy. If not, fail. Unless the modification is done by a
+ * user with read/write permissions on the user password attribute.
+ *
+ */
+int
+passwdqc_modify_entry (Slapi_PBlock *pb)
+{
+  int rc = LDAP_SUCCESS;
+  char *errMesg = NULL;
+  char *check_reason = NULL;
+  char *dn = NULL;
+  struct passwd *user_pw = NULL;
+  LDAPMod **mods;
+  LDAPMod *mod;
+  char *new_password = NULL;
+  char *new_unhashed_password = NULL;
+  Slapi_Entry *user_entry = NULL;
+  
+  /* Get the target DN */
+  if (slapi_pblock_get(pb, SLAPI_MODIFY_TARGET, &dn) || !dn)
+    {
+      errMesg = "Internal error getting the dn";
+      rc = LDAP_UNWILLING_TO_PERFORM;
+      goto free_and_return;
+    }
+
+  /* Search for the user entry */
+  Slapi_DN *sdn = slapi_sdn_new_dn_byval(dn);
+  if (sdn)
+    {
+      slapi_search_internal_get_entry (sdn, NULL, &user_entry, passwdqc_get_plugin_id());
+      slapi_sdn_free(&sdn);
+    }
+  
+  if (slapi_pblock_get(pb, SLAPI_MODIFY_MODS, &mods))
+    {
+      errMesg = "Internal error parsing modifications";
+      rc = LDAP_UNWILLING_TO_PERFORM;
+      goto free_and_return;
+    }
+
+    /* find out how many mods meet this criteria */
+    for(;*mods;mods++)
+      {
+        mod = *mods;
+        if ((slapi_attr_type_cmp(mod->mod_type, "unhashed#user#password", 1) == 0) &&
+	    (mod->mod_bvalues && mod->mod_bvalues[0]) &&
+            (SLAPI_IS_MOD_ADD(mod->mod_op) ||
+             SLAPI_IS_MOD_REPLACE(mod->mod_op)))
+        {
+	  new_unhashed_password = slapi_ch_malloc (mod->mod_bvalues[0]->bv_len + 1);
+	  sprintf (new_unhashed_password, "%.*s", (int)mod->mod_bvalues[0]->bv_len,
+		   mod->mod_bvalues[0]->bv_val);
+        } else if ((slapi_attr_type_cmp(mod->mod_type, "userPassword", 1) == 0) &&
+		   (mod->mod_bvalues && mod->mod_bvalues[0]) &&
+		   (SLAPI_IS_MOD_ADD(mod->mod_op) ||
+		    SLAPI_IS_MOD_REPLACE(mod->mod_op)))
+        {
+	  new_password = slapi_ch_malloc (mod->mod_bvalues[0]->bv_len + 1);
+	  sprintf (new_password, "%.*s", (int)mod->mod_bvalues[0]->bv_len,
+		   mod->mod_bvalues[0]->bv_val);
+        }
+      }
+
+    struct berval val = { strlen(new_password), new_password };
+    
+    if (!new_password && !new_unhashed_password)
+      {
+	goto free_and_return;
+      }
+    else if (user_entry && (slapi_access_allowed (pb, user_entry, "userPassword", &val, SLAPI_ACL_READ) == LDAP_SUCCESS))
+      {
+	/* If user can read the userPassword attribute, assume the
+	   modifier is an admin, so proceed without checking. */
+	goto free_and_return;
+      }
+    else if (slapi_is_encoded(new_password) && (!new_unhashed_password))
+      {
+	/* User provided the hash, just fail */
+	errMesg = "Hashed password modification is not allowed";
+	rc = SLAPI_PLUGIN_EXTENDED_SENT_RESULT;
+	goto free_and_return;
+      }
+    else if (slapi_is_encoded(new_password) && new_unhashed_password)
+      {
+	slapi_ch_free_string (&new_password);
+	new_password = slapi_ch_strdup (new_unhashed_password);
+      }
+    /* new_password has the plain text password */   
+    /* slapi_log_error (SLAPI_LOG_FATAL, "passwdqc_modify_entry", */
+    /* 		     "New password: %s\n", new_password); */
+
+
+    user_pw = passwdqc_get_user_passwd (dn);
+    passwdqc_rlock_config();
+    check_reason = (char*)passwdqc_check(&config.qc, new_password, "", user_pw);
+    passwdqc_unlock_config(); 
+    if (check_reason)
+      {
+	errMesg = check_reason;
+	rc = LDAP_UNWILLING_TO_PERFORM;
+	goto free_and_return;
+      }
+
+free_and_return:
+    slapi_ch_free_string(&new_password);
+    slapi_ch_free_string(&new_unhashed_password);
+
+    if (user_pw)
+      {
+	slapi_ch_free_string (&user_pw->pw_name);
+	slapi_ch_free_string (&user_pw->pw_passwd);
+	slapi_ch_free_string (&user_pw->pw_gecos);
+	slapi_ch_free_string (&user_pw->pw_dir);
+	slapi_ch_free_string (&user_pw->pw_shell);
+	free (user_pw);
+      }
+
+    if (rc != LDAP_SUCCESS)
+      {
+	slapi_log_error(SLAPI_LOG_PLUGIN, "passwdqc_modify_entry",
+			"%s\n", errMesg);
+	slapi_send_ldap_result(pb, rc, NULL, errMesg, 0, NULL);
+	return SLAPI_PLUGIN_EXTENDED_SENT_RESULT;
+      }
+    else
+      {
+	return LDAP_SUCCESS;
+      }
+}
+
+/* Extop initialization function */
 int
 passwdqc_extop_init (Slapi_PBlock *pb)
+{
+  if (slapi_pblock_set (pb, SLAPI_PLUGIN_EXT_OP_FN, (void *) passwdqc_change_pass) != 0 ||
+      slapi_pblock_set (pb, SLAPI_PLUGIN_EXT_OP_OIDLIST, passwd_oid_list ) != 0 ||
+      slapi_pblock_set (pb, SLAPI_PLUGIN_EXT_OP_NAMELIST, passwd_name_list ) != 0)
+    {
+      slapi_log_error (SLAPI_LOG_FATAL, "passwdqc",
+		       "Failed to set plug-in version, function, and OID.\n");
+      return -1;
+    }
+}
+
+/* Initialization function */
+int
+passwdqc_init (Slapi_PBlock *pb)
 
 /* This function is called when the plug-in shared object is first
    loaded into memory, usually at server start up time. This function
@@ -553,16 +703,23 @@ passwdqc_extop_init (Slapi_PBlock *pb)
   if  (slapi_pblock_set (pb, SLAPI_PLUGIN_VERSION, SLAPI_PLUGIN_VERSION_01 ) != 0 ||
        slapi_pblock_set (pb, SLAPI_PLUGIN_DESCRIPTION, (void *)&passwdqc_desc) != 0 ||
 
-       slapi_pblock_set (pb, SLAPI_PLUGIN_START_FN, (void *) passwdqc_extop_start ) != 0 ||
+       slapi_pblock_set (pb, SLAPI_PLUGIN_START_FN, (void *) passwdqc_start ) != 0 ||
 
-       slapi_pblock_set (pb, SLAPI_PLUGIN_EXT_OP_FN, (void *) passwdqc_change_pass) != 0 ||
-       slapi_pblock_set (pb, SLAPI_PLUGIN_EXT_OP_OIDLIST, passwd_oid_list ) != 0 ||
-       slapi_pblock_set (pb, SLAPI_PLUGIN_EXT_OP_NAMELIST, passwd_name_list ) != 0 )
+       slapi_pblock_set (pb, SLAPI_PLUGIN_PRE_MODIFY_FN, (void *) passwdqc_modify_entry) != 0)
     {
       slapi_log_error (SLAPI_LOG_FATAL, "passwdqc",
 		       "Failed to set plug-in version, function, and OID.\n");
       return -1;
     }
+
+  /* Register extended operation functions */
+  if (slapi_register_plugin("extendedop", 1, "passwdqc_init", passwdqc_extop_init,
+			    "passwdqc extop plugin", NULL, passwdqc_plugin_identity))
+    {
+      slapi_log_error (SLAPI_LOG_FATAL, "passwdqc",
+		       "Failed to set plug-in version, function, and OID.\n");
+      return -1;
+    }      
 
   return 0;
 }
