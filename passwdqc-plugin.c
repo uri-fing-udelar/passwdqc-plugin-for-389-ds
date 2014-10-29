@@ -583,6 +583,7 @@ passwdqc_modify_entry (Slapi_PBlock *pb)
 	  new_unhashed_password = slapi_ch_malloc (mod->mod_bvalues[0]->bv_len + 1);
 	  sprintf (new_unhashed_password, "%.*s", (int)mod->mod_bvalues[0]->bv_len,
 		   mod->mod_bvalues[0]->bv_val);
+
         } else if ((slapi_attr_type_cmp(mod->mod_type, "userPassword", 1) == 0) &&
 		   (mod->mod_bvalues && mod->mod_bvalues[0]) &&
 		   (SLAPI_IS_MOD_ADD(mod->mod_op) ||
@@ -607,19 +608,21 @@ passwdqc_modify_entry (Slapi_PBlock *pb)
 	   modifier is an admin, so proceed without checking. */
 	goto free_and_return;
       }
-    else if (slapi_is_encoded(new_password) && (!new_unhashed_password))
+    else if (slapi_is_encoded(new_password)) 
       {
-	/* User provided the hash, just fail */
-	errMesg = "Hashed password modification is not allowed";
-	rc = SLAPI_PLUGIN_EXTENDED_SENT_RESULT;
-	goto free_and_return;
+	if (!new_unhashed_password || slapi_is_encoded(new_unhashed_password))
+	  {
+	    /* User provided the hash, just fail */
+	    errMesg = "Hashed password modification is not allowed";
+	    rc = SLAPI_PLUGIN_EXTENDED_SENT_RESULT;
+	    goto free_and_return;
+	  }
+	else
+	  {
+	    slapi_ch_free_string (&new_password);
+	    new_password = slapi_ch_strdup (new_unhashed_password);
+	  }
       }
-    else if (slapi_is_encoded(new_password) && new_unhashed_password)
-      {
-	slapi_ch_free_string (&new_password);
-	new_password = slapi_ch_strdup (new_unhashed_password);
-      }
-    /* new_password has the plain text password */   
     /* slapi_log_error (SLAPI_LOG_FATAL, "passwdqc_modify_entry", */
     /* 		     "New password: %s\n", new_password); */
 
